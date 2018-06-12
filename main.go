@@ -212,19 +212,20 @@ type githubRecord struct {
 
 // Fields defines the airtable fields for the data.
 type Fields struct {
-	Reference string
-	Title     string
-	State     string
-	Author    string
-	Type      string
-	Labels    []string
-	Comments  int
-	URL       string
-	Updated   time.Time
-	Created   time.Time
-	Completed time.Time
-	Project   interface{}
-	Milestone	interface{}
+	Reference     string
+	Title         string
+	State         string
+	Author        string
+	Type          string
+	Labels        []string
+	Comments      int
+	URL           string
+	Updated       time.Time
+	Created       time.Time
+	Completed     time.Time
+	Project       interface{}
+	Milestone     string
+	MilestoneDate time.Time
 }
 
 func (bot *bot) run(ctx context.Context, visibility string, affiliation string) error {
@@ -315,35 +316,42 @@ func (bot *bot) applyRecordToTable(ctx context.Context, issue *github.Issue, key
 			issue.State = &mstr
 		}
 	}
+	milestone := issue.GetMilestone()
+	milsetoneName := milestone.GetTitle()
+	milestoneDate := milestone.GetDueOn()
 
 	// Create our empty record struct.
 	record := githubRecord{
 		Fields: Fields{
-			Reference: key,
-			Title:     issue.GetTitle(),
-			State:     issue.GetState(),
-			Author:    issue.GetUser().GetLogin(),
-			Type:      issueType,
-			Comments:  issue.GetComments(),
-			URL:       issue.GetHTMLURL(),
-			Updated:   issue.GetUpdatedAt(),
-			Created:   issue.GetCreatedAt(),
-			Completed: issue.GetClosedAt(),
+			Reference:     key,
+			Title:         issue.GetTitle(),
+			State:         issue.GetState(),
+			Author:        issue.GetUser().GetLogin(),
+			Type:          issueType,
+			Comments:      issue.GetComments(),
+			URL:           issue.GetHTMLURL(),
+			Updated:       issue.GetUpdatedAt(),
+			Created:       issue.GetCreatedAt(),
+			Completed:     issue.GetClosedAt(),
+			Milestone:     milsetoneName,
+			MilestoneDate: milestoneDate,
 		},
 	}
 
 	// Update the record fields.
 	fields := map[string]interface{}{
-		"Reference": record.Fields.Reference,
-		"Title":     record.Fields.Title,
-		"State":     record.Fields.State,
-		"Author":    record.Fields.Author,
-		"Type":      record.Fields.Type,
-		"Comments":  record.Fields.Comments,
-		"URL":       record.Fields.URL,
-		"Updated":   record.Fields.Updated,
-		"Created":   record.Fields.Created,
-		"Completed": record.Fields.Completed,
+		"Reference":     record.Fields.Reference,
+		"Title":         record.Fields.Title,
+		"State":         record.Fields.State,
+		"Author":        record.Fields.Author,
+		"Type":          record.Fields.Type,
+		"Comments":      record.Fields.Comments,
+		"URL":           record.Fields.URL,
+		"Updated":       record.Fields.Updated,
+		"Created":       record.Fields.Created,
+		"Completed":     record.Fields.Completed,
+		"Milestone":     record.Fields.Milestone,
+		"MilestoneDate": record.Fields.MilestoneDate,
 	}
 
 	if id != "" {
@@ -372,7 +380,7 @@ func (bot *bot) applyRecordToTable(ctx context.Context, issue *github.Issue, key
 
 func (bot *bot) getRepositories(ctx context.Context, page, perPage int, visibility string, affiliation string) error {
 	opt := &github.RepositoryListOptions{
-		Visibility: visibility,
+		Visibility:  visibility,
 		Affiliation: affiliation,
 		ListOptions: github.ListOptions{
 			Page:    page,
@@ -405,11 +413,11 @@ func (bot *bot) getRepositories(ctx context.Context, page, perPage int, visibili
 }
 
 func (bot *bot) getIssues(ctx context.Context, page, perPage int, owner, repo string) error {
-	now = time.Now()
-	time_bound = now.addDate(-1, 0, 0)
+	now := time.Now()
+	timeBound := now.AddDate(-1, 0, 0)
 	opt := &github.IssueListByRepoOptions{
 		State: "all",
-		Since: time_bound
+		Since: timeBound,
 		ListOptions: github.ListOptions{
 			Page:    page,
 			PerPage: perPage,
