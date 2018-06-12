@@ -160,6 +160,8 @@ func main() {
 		affiliation += ",organization_member"
 	}
 
+	visibility := "private"
+
 	// If we didn't get any orgs explicitly passed, use the current user.
 	if len(orgs) == 0 {
 		// Get the current user for the GitHub token.
@@ -181,7 +183,7 @@ func main() {
 
 	// If the user passed the once flag, just do the run once and exit.
 	if once {
-		if err := bot.run(ctx, affiliation); err != nil {
+		if err := bot.run(ctx, visibility, affiliation); err != nil {
 			logrus.Fatal(err)
 		}
 		logrus.Infof("Updated airtable table %s for base %s", airtableTableName, airtableBaseID)
@@ -190,7 +192,7 @@ func main() {
 
 	logrus.Infof("Starting bot to update airtable table %s for base %s every %s", airtableTableName, airtableBaseID, interval)
 	for range ticker.C {
-		if err := bot.run(ctx, affiliation); err != nil {
+		if err := bot.run(ctx, visibility, affiliation); err != nil {
 			logrus.Fatal(err)
 		}
 	}
@@ -222,15 +224,16 @@ type Fields struct {
 	Created   time.Time
 	Completed time.Time
 	Project   interface{}
+	Milestone	interface{}
 }
 
-func (bot *bot) run(ctx context.Context, affiliation string) error {
+func (bot *bot) run(ctx context.Context, visibility string, affiliation string) error {
 	// if we are in autofill mode, get our repositories
 	if autofill {
 		page := 1
 		perPage := 100
 		logrus.Infof("getting repositories to be autofilled for org[s]: %s...", strings.Join(orgs, ", "))
-		if err := bot.getRepositories(ctx, page, perPage, affiliation); err != nil {
+		if err := bot.getRepositories(ctx, page, perPage, visibility, affiliation); err != nil {
 			return err
 		}
 	}
@@ -367,8 +370,9 @@ func (bot *bot) applyRecordToTable(ctx context.Context, issue *github.Issue, key
 	return nil
 }
 
-func (bot *bot) getRepositories(ctx context.Context, page, perPage int, affiliation string) error {
+func (bot *bot) getRepositories(ctx context.Context, page, perPage int, visibility string, affiliation string) error {
 	opt := &github.RepositoryListOptions{
+		Visibility: visibility,
 		Affiliation: affiliation,
 		ListOptions: github.ListOptions{
 			Page:    page,
@@ -397,12 +401,15 @@ func (bot *bot) getRepositories(ctx context.Context, page, perPage int, affiliat
 	}
 
 	page = resp.NextPage
-	return bot.getRepositories(ctx, page, perPage, affiliation)
+	return bot.getRepositories(ctx, page, perPage, visibility, affiliation)
 }
 
 func (bot *bot) getIssues(ctx context.Context, page, perPage int, owner, repo string) error {
+	now = time.Now()
+	time_bound = now.addDate(-1, 0, 0)
 	opt := &github.IssueListByRepoOptions{
 		State: "all",
+		Since: time_bound
 		ListOptions: github.ListOptions{
 			Page:    page,
 			PerPage: perPage,
